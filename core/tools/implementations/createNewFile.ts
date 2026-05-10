@@ -3,11 +3,11 @@ import { inferResolvedUriFromRelativePath } from "../../util/ideUtils";
 import { ToolImpl } from ".";
 import { throwIfFileIsSecurityConcern } from "../../indexing/ignore";
 import { getCleanUriPath, getUriPathBasename } from "../../util/uri";
-import { getStringArg } from "../parseArgs";
+import { getStringArg, sanitizeFilepath } from "../parseArgs";
 import { ContinueError, ContinueErrorReason } from "../../util/errors";
 
 export const createNewFileImpl: ToolImpl = async (args, extras) => {
-  const filepath = getStringArg(args, "filepath");
+  const filepath = sanitizeFilepath(getStringArg(args, "filepath"));
   const contents = getStringArg(args, "contents", true);
 
   let resolvedFileUri: string;

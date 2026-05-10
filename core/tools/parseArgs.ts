@@ -62,6 +62,18 @@ export function coerceArgsToSchema(
   return coerced;
 }
 
+/**
+ * Some models accidentally prefix a filepath value with its parameter name
+ * (e.g. they generate "filepath sandbox/test/hello.c" as the filepath value).
+ * Strip that prefix so path resolution is not broken by the model artefact.
+ */
+export function sanitizeFilepath(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^filepath[:\s]+/i, "")
+    .trim();
+}
+
 export function getStringArg(
   args: any,
   argName: string,

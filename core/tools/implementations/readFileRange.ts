@@ -3,7 +3,7 @@ import { getUriPathBasename } from "../../util/uri";
 
 import { ToolImpl } from ".";
 import { throwIfFileIsSecurityConcern } from "../../indexing/ignore";
-import { getNumberArg, getStringArg } from "../parseArgs";
+import { getNumberArg, getStringArg, sanitizeFilepath } from "../parseArgs";
 import { throwIfFileExceedsHalfOfContext } from "./readFileLimit";
 import { ContinueError, ContinueErrorReason } from "../../util/errors";
 
@@ -12,7 +12,7 @@ import { ContinueError, ContinueErrorReason } from "../../util/errors";
 export const MAX_CHAR_POSITION = 2147483647;
 
 export const readFileRangeImpl: ToolImpl = async (args, extras) => {
-  const filepath = getStringArg(args, "filepath");
+  const filepath = sanitizeFilepath(getStringArg(args, "filepath"));
   const startLine = getNumberArg(args, "startLine");
   const endLine = getNumberArg(args, "endLine");
 
