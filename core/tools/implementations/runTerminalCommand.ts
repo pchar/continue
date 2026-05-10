@@ -1,6 +1,7 @@
 import iconv from "iconv-lite";
 import childProcess from "node:child_process";
 import os from "node:os";
+import path from "node:path";
 import { ContinueError, ContinueErrorReason } from "../../util/errors";
 
 // Default timeout for terminal commands (2 minutes)
@@ -90,10 +91,47 @@ async function resolveExplicitCwd(
 }
 
 /**
+ * When all workspace roots in a multi-root workspace are immediate siblings
+ * (share the same parent directory), returns that parent. This allows
+ * workspace-root-prefixed paths like "sandbox/test" to resolve correctly
+ * from terminal commands without the model needing to specify a cwd.
+ * Returns null if roots do not share a single immediate parent.
+ */
+function resolveCommonWorkspaceParent(workspaceDirs: string[]): string | null {
+  const filePaths = workspaceDirs
+    .filter((d) => d.startsWith("file://"))
+    .map((d) => {
+      try {
+        return fileURLToPath(d);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean) as string[];
+
+  if (filePaths.length < 2) return null;
+
+  const parents = filePaths.map((p) => path.dirname(p));
+  const firstParent = parents[0];
+  if (!parents.every((p) => p === firstParent)) return null;
+  return firstParent;
+}
+
+/**
  * Resolves the working directory from workspace dirs.
+ * In a multi-root workspace whose roots share a common parent, uses that
+ * parent so workspace-root-prefixed paths (e.g. "sandbox/test") work
+ * correctly in commands without an explicit cwd argument.
  * Falls back to home directory or temp directory if no workspace is available.
  */
 function resolveWorkingDirectory(workspaceDirs: string[]): string {
+  // Multi-root: if all local roots share the same parent, use that as cwd
+  // so that root-prefixed paths resolve correctly (e.g. "mkdir -p sandbox/test")
+  if (workspaceDirs.length > 1) {
+    const commonParent = resolveCommonWorkspaceParent(workspaceDirs);
+    if (commonParent) return commonParent;
+  }
+
   // Handle file:// URIs (local workspaces)
   const fileWorkspaceDir = workspaceDirs.find((dir) =>
     dir.startsWith("file:/"),
@@ -414,7 +452,9 @@ export const runTerminalCommandImpl: ToolImpl = async (args, extras) => {
     } else {
       // Fallback to non-streaming for older clients
       const workspaceDirs = await extras.ide.getWorkspaceDirs();
-      const cwd = resolveWorkingDirectory(workspaceDirs);
+      const cwd = cwdArg
+        ? await resolveExplicitCwd(cwdArg, extras.ide)
+        : resolveWorkingDirectory(workspaceDirs);
 
       if (waitForCompletion) {
         // Standard execution, waiting for completion
