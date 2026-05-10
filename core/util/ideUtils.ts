@@ -138,11 +138,14 @@ export async function inferResolvedUriFromRelativePath(
   }
 
   // Step 5: Multi-root, ambiguous — refuse instead of silently guessing.
+  const firstSegment2 = segments[0] ?? "";
+  const hint =
+    roots.length > 0
+      ? `Use one of: ${roots.map((r) => `"${r.name}/${relativePath}"`).join(", ")}`
+      : "Use an absolute path.";
   throw new Error(
-    `Cannot resolve "${relativePath}": path is ambiguous in a multi-root workspace.\n` +
-      `Available workspace roots:\n` +
-      roots.map((r) => `- ${r.name}`).join("\n") +
-      `\n\nPrefix the path with the target workspace root name ` +
-      `(e.g. "${roots[0]?.name ?? "rootname"}/${relativePath}") or use an absolute path.`,
+    `Cannot create "${relativePath}": "${firstSegment2}" is not a workspace root name.\n` +
+      `Workspace roots: ${roots.map((r) => r.name).join(", ")}.\n` +
+      hint,
   );
 }
