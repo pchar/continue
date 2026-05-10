@@ -18,18 +18,21 @@ const MAX_LS_TOOL_LINES = 200;
 export const lsToolImpl: ToolImpl = async (args, extras) => {
   const dirPath = resolveLsToolDirPath(args?.dirPath);
 
-  // In a multi-root workspace, "." means show workspace roots — not the first root's contents.
+  // In a multi-root workspace, "." lists workspace root names as top-level directories.
+  // Format matches a normal ls entry (trailing slash = directory) so the model understands
+  // these names are the correct first segment for any path (e.g. sandbox/test/hello.c).
   if (dirPath === ".") {
     const workspaceDirs = await extras.ide.getWorkspaceDirs();
     if (workspaceDirs.length > 1) {
       const rootLines = workspaceDirs.map(
-        (uri) => `${getUriPathBasename(uri)}  ${uri}`,
+        (uri) => `${getUriPathBasename(uri)}/`,
       );
       return [
         {
-          name: "Workspace roots",
-          description: "Multi-root workspace — list of top-level roots",
-          content: "Workspace roots:\n" + rootLines.join("\n"),
+          name: "File/folder list",
+          description:
+            "Multi-root workspace roots — prefix any path with the root name (e.g. sandbox/test/hello.c)",
+          content: rootLines.join("\n"),
         },
       ];
     }

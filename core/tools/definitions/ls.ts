@@ -16,7 +16,8 @@ export const lsTool: Tool = {
   group: BUILT_IN_GROUP_NAME,
   function: {
     name: BuiltInToolNames.LSTool,
-    description: "List files and folders in a given directory",
+    description:
+      'List files and folders in a given directory. In a multi-root workspace, calling with dirPath="." returns the workspace root names as top-level directories — use those names as the first path segment for all file operations (e.g. sandbox/test/hello.c).',
     parameters: {
       type: "object",
       properties: {

@@ -16,7 +16,7 @@ export const createNewFileTool: Tool = {
   function: {
     name: BuiltInToolNames.CreateNewFile,
     description:
-      "Create a new file. Only use this when a file doesn't exist and should be created",
+      "Create a new file. Only use this when a file doesn't exist and should be created. In a multi-root workspace, prefix the path with the target workspace root name (e.g. sandbox/test/hello.c creates hello.c inside the sandbox root). Parent directories are created automatically.",
     parameters: {
       type: "object",
       required: ["filepath", "contents"],

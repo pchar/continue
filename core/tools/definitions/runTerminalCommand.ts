@@ -30,6 +30,7 @@ const RUN_COMMAND_NOTES = `The shell is not stateful and will not remember any p
       When suggesting subsequent shell commands ALWAYS format them in shell command blocks.\
       Do NOT perform actions requiring special/admin privileges.\
       IMPORTANT: To edit files, use Edit/MultiEdit tools instead of bash commands (sed, awk, etc).\
+      IMPORTANT: In a multi-root workspace, ALWAYS pass the cwd argument with the target workspace root name (e.g. cwd="sandbox") — never run directory-creation commands with an ambiguous relative path.\
       ${PLATFORM_INFO}`;
 
 export const runTerminalCommandTool: Tool = {
