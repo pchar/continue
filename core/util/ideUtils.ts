@@ -4,12 +4,17 @@ import {
   joinEncodedUriPathSegmentToUri,
   joinPathsToUri,
   pathToUriPathSegment,
+  getUriPathBasename,
 } from "./uri";
 
 /*
   This function takes a relative (to workspace) filepath
   And checks each workspace for if it exists or not
-  Only returns fully resolved URI if it exists
+  Only returns fully resolved URI if it exists.
+
+  Root-name priority: in a multi-root workspace, if the first path segment exactly matches
+  a unique workspace root basename, that root is used — even if a same-named subdirectory
+  exists inside another root.
 */
 export async function resolveRelativePathInDir(
   path: string,
@@ -17,6 +22,29 @@ export async function resolveRelativePathInDir(
   dirUriCandidates?: string[],
 ): Promise<string | undefined> {
   const dirs = dirUriCandidates ?? (await ide.getWorkspaceDirs());
+
+  // In multi-root workspaces, give priority to root-name match over filesystem existence.
+  if (dirs.length > 1) {
+    const segments = path.split("/").filter(Boolean);
+    const firstSegment = decodeURIComponent(segments[0] ?? "");
+    if (firstSegment) {
+      const matchingRoots = dirs.filter(
+        (uri) => getUriPathBasename(uri) === firstSegment,
+      );
+      if (matchingRoots.length === 1) {
+        const rootRelativePath = segments.slice(1).join("/");
+        if (!rootRelativePath) {
+          return matchingRoots[0];
+        }
+        const fullUri = joinPathsToUri(matchingRoots[0], rootRelativePath);
+        if (await ide.fileExists(fullUri)) {
+          return fullUri;
+        }
+        return undefined;
+      }
+    }
+  }
+
   for (const dirUri of dirs) {
     const fullUri = joinPathsToUri(dirUri, path);
     if (await ide.fileExists(fullUri)) {
@@ -28,10 +56,15 @@ export async function resolveRelativePathInDir(
 }
 
 /*
-  Same as above but in this case the relative path does not need to exist (e.g. file to be created, etc)
-  Checks closes match with the dirs, path segment by segment
-  and based on which workspace has the closest matching path, returns resolved URI
-  If no meaninful path match just concatenates to first dir's uri
+  Same as above but in this case the relative path does not need to exist (e.g. file to be created).
+
+  Resolution priority:
+  1. Root-name match: if first segment = a unique workspace root basename, resolve to that root.
+  2. Duplicate root basename: throw ambiguity error immediately.
+  3. Unique suffix match against existing paths across all roots.
+  4. Active-file match (model outputs only the filename of the currently open file).
+  5. Single root: resolve relative to it.
+  6. Multi-root with no clear resolution: throw — never silently fall back to first root.
 */
 export async function inferResolvedUriFromRelativePath(
   _relativePath: string,
@@ -45,47 +78,71 @@ export async function inferResolvedUriFromRelativePath(
     throw new Error("inferResolvedUriFromRelativePath: no dirs provided");
   }
 
-  const segments = pathToUriPathSegment(relativePath).split("/");
-  // Generate all possible suffixes from shortest to longest
-  const suffixes: string[] = [];
-  for (let i = segments.length - 1; i >= 0; i--) {
-    suffixes.push(segments.slice(i).join("/"));
+  // Step 1: Root-name match.
+  const segments = relativePath.split("/").filter(Boolean);
+  const firstSegment = decodeURIComponent(segments[0] ?? "");
+  const roots = dirs.map((uri) => ({ uri, name: getUriPathBasename(uri) }));
+  const matchingRoots = roots.filter((root) => root.name === firstSegment);
+
+  if (matchingRoots.length === 1) {
+    const rootRelativePath = segments.slice(1).join("/");
+    return rootRelativePath
+      ? joinPathsToUri(matchingRoots[0].uri, rootRelativePath)
+      : matchingRoots[0].uri;
   }
 
-  // For each suffix, try to find a unique matching dir/file
+  if (matchingRoots.length > 1) {
+    throw new Error(
+      `Ambiguous workspace root name "${firstSegment}": more than one open root has that basename. ` +
+        `Use an absolute path or the full workspace root path.`,
+    );
+  }
+
+  // Step 2: Unique suffix match against existing files/dirs.
+  const encodedSegments = pathToUriPathSegment(relativePath).split("/");
+  const suffixes: string[] = [];
+  for (let i = encodedSegments.length - 1; i >= 0; i--) {
+    suffixes.push(encodedSegments.slice(i).join("/"));
+  }
+
   for (const suffix of suffixes) {
     const uris = dirs.map((dir) => ({
       dir,
       partialUri: joinEncodedUriPathSegmentToUri(dir, suffix),
     }));
-    const promises = uris.map(async ({ partialUri, dir }) => {
-      const exists = await ide.fileExists(partialUri);
-      return {
+    const existenceChecks = await Promise.all(
+      uris.map(async ({ partialUri, dir }) => ({
         dir,
         partialUri,
-        exists,
-      };
-    });
-    const existenceChecks = await Promise.all(promises);
-
+        exists: await ide.fileExists(partialUri),
+      })),
+    );
     const existingUris = existenceChecks.filter(({ exists }) => exists);
-
-    // If exactly one directory matches, use it
     if (existingUris.length === 1) {
       return joinEncodedUriPathSegmentToUri(
         existingUris[0].dir,
-        segments.join("/"),
+        encodedSegments.join("/"),
       );
     }
   }
 
-  // Sometimes the model will decide to only output the base name or small number of path parts
-  // in which case we shouldn't create a new file if it matches the current file
+  // Step 3: Active-file match.
   const activeFile = await ide.getCurrentFile();
   if (activeFile && activeFile.path.endsWith(relativePath)) {
     return activeFile.path;
   }
 
-  // If no unique match found, use the first directory
-  return joinPathsToUri(dirs[0], relativePath);
+  // Step 4: Single root — safe to resolve.
+  if (dirs.length === 1) {
+    return joinPathsToUri(dirs[0], relativePath);
+  }
+
+  // Step 5: Multi-root, ambiguous — refuse instead of silently guessing.
+  throw new Error(
+    `Cannot resolve "${relativePath}": path is ambiguous in a multi-root workspace.\n` +
+      `Available workspace roots:\n` +
+      roots.map((r) => `- ${r.name}`).join("\n") +
+      `\n\nPrefix the path with the target workspace root name ` +
+      `(e.g. "${roots[0]?.name ?? "rootname"}/${relativePath}") or use an absolute path.`,
+  );
 }

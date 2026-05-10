@@ -295,10 +295,10 @@ class VsCodeIde implements IDE {
   }
 
   async writeFile(fileUri: string, contents: string): Promise<void> {
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.parse(fileUri),
-      Buffer.from(contents),
-    );
+    const uri = vscode.Uri.parse(fileUri);
+    const parentUri = vscode.Uri.joinPath(uri, "..");
+    await vscode.workspace.fs.createDirectory(parentUri);
+    await vscode.workspace.fs.writeFile(uri, Buffer.from(contents));
   }
 
   async removeFile(fileUri: string): Promise<void> {

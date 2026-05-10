@@ -52,6 +52,11 @@ export const runTerminalCommandTool: Tool = {
           description:
             "The command to run. This will be passed directly into the IDE shell.",
         },
+        cwd: {
+          type: "string",
+          description:
+            'Optional working directory. In a multi-root workspace you MUST specify the target workspace root name as the first segment (e.g. "sandbox" or "sandbox/subdir"). Accepts a workspace root name, a root-prefixed relative path, or an absolute path.',
+        },
         waitForCompletion: {
           type: "boolean",
           description:

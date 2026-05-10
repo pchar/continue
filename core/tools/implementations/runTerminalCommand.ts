@@ -45,7 +45,49 @@ import {
   removeRunningProcess,
   updateProcessOutput,
 } from "../../util/processTerminalStates";
-import { getBooleanArg, getStringArg } from "../parseArgs";
+import {
+  getBooleanArg,
+  getOptionalStringArg,
+  getStringArg,
+} from "../parseArgs";
+import { resolveRelativePathInDir } from "../../util/ideUtils";
+import { getUriPathBasename } from "../../util/uri";
+
+/**
+ * Resolves an explicit cwd argument through the root-aware path resolver.
+ * Accepts a workspace root name, a root-prefixed relative path, or an absolute path.
+ */
+async function resolveExplicitCwd(
+  cwd: string,
+  ide: {
+    getWorkspaceDirs(): Promise<string[]>;
+    fileExists(uri: string): Promise<boolean>;
+  },
+): Promise<string> {
+  if (cwd.startsWith("file://")) {
+    return fileURLToPath(cwd);
+  }
+  // Absolute filesystem path
+  if (cwd.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(cwd)) {
+    return cwd;
+  }
+  // Relative — resolve via root-aware resolver (handles root-name prefix)
+  const resolvedUri = await resolveRelativePathInDir(cwd, ide as any);
+  if (resolvedUri) {
+    try {
+      return fileURLToPath(resolvedUri);
+    } catch {
+      const url = new URL(resolvedUri);
+      return decodeURIComponent(url.pathname);
+    }
+  }
+  const workspaceDirs = await ide.getWorkspaceDirs();
+  throw new Error(
+    `Cannot resolve working directory "${cwd}". ` +
+      `Use a workspace root name or an absolute path. ` +
+      `Available roots: ${workspaceDirs.map((d) => getUriPathBasename(d)).join(", ")}`,
+  );
+}
 
 /**
  * Resolves the working directory from workspace dirs.
@@ -108,6 +150,7 @@ const LOCAL_ONLY = ["", "local"];
 
 export const runTerminalCommandImpl: ToolImpl = async (args, extras) => {
   const command = getStringArg(args, "command");
+  const cwdArg = getOptionalStringArg(args, "cwd");
   // Default to waiting for completion if not specified
   const waitForCompletion =
     getBooleanArg(args, "waitForCompletion", false) ?? true;
@@ -120,7 +163,9 @@ export const runTerminalCommandImpl: ToolImpl = async (args, extras) => {
     if (extras.onPartialOutput) {
       try {
         const workspaceDirs = await extras.ide.getWorkspaceDirs();
-        const cwd = resolveWorkingDirectory(workspaceDirs);
+        const cwd = cwdArg
+          ? await resolveExplicitCwd(cwdArg, extras.ide)
+          : resolveWorkingDirectory(workspaceDirs);
 
         return new Promise((resolve, reject) => {
           let terminalOutput = "";

@@ -4,6 +4,7 @@ import { ToolImpl } from ".";
 import { walkDir } from "../../indexing/walkDir";
 import { ContinueError, ContinueErrorReason } from "../../util/errors";
 import { resolveInputPath } from "../../util/pathResolver";
+import { getUriPathBasename } from "../../util/uri";
 
 export function resolveLsToolDirPath(dirPath: string | undefined) {
   if (!dirPath || dirPath === ".") {
@@ -16,6 +17,24 @@ const MAX_LS_TOOL_LINES = 200;
 
 export const lsToolImpl: ToolImpl = async (args, extras) => {
   const dirPath = resolveLsToolDirPath(args?.dirPath);
+
+  // In a multi-root workspace, "." means show workspace roots — not the first root's contents.
+  if (dirPath === ".") {
+    const workspaceDirs = await extras.ide.getWorkspaceDirs();
+    if (workspaceDirs.length > 1) {
+      const rootLines = workspaceDirs.map(
+        (uri) => `${getUriPathBasename(uri)}  ${uri}`,
+      );
+      return [
+        {
+          name: "Workspace roots",
+          description: "Multi-root workspace — list of top-level roots",
+          content: "Workspace roots:\n" + rootLines.join("\n"),
+        },
+      ];
+    }
+  }
+
   const resolvedPath = await resolveInputPath(extras.ide, dirPath);
   if (!resolvedPath) {
     throw new ContinueError(
