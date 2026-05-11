@@ -80,9 +80,11 @@ export function getStringArg(
   allowEmpty = false,
 ): string {
   if (!args || !(argName in args)) {
-    throw new Error(
-      `\`${argName}\` argument is required${allowEmpty ? "" : " and must not be empty or whitespace-only"}. (type string)`,
-    );
+    const msg =
+      argName === "filepath"
+        ? `"filepath" is required for file operations. Ensure the file path is provided (e.g., "path/to/file.txt" or "workspace-name/path/to/file.txt" for multi-root workspaces).`
+        : `\`${argName}\` argument is required${allowEmpty ? "" : " and must not be empty or whitespace-only"}. (type string)`;
+    throw new Error(msg);
   }
 
   let value = args[argName];
@@ -101,13 +103,19 @@ export function getStringArg(
   }
 
   if (typeof value !== "string") {
-    throw new Error(
-      `\`${argName}\` argument is required${allowEmpty ? "" : " and must not be empty or whitespace-only"}. (type string)`,
-    );
+    const msg =
+      argName === "filepath"
+        ? `"filepath" must be a string. Got ${typeof value} instead.`
+        : `\`${argName}\` argument is required${allowEmpty ? "" : " and must not be empty or whitespace-only"}. (type string)`;
+    throw new Error(msg);
   }
 
   if (!allowEmpty && !value.trim()) {
-    throw new Error(`Argument ${argName} must not be empty or whitespace-only`);
+    throw new Error(
+      argName === "filepath"
+        ? `filepath cannot be empty. Provide a valid file path (e.g., "path/to/file.txt").`
+        : `Argument ${argName} must not be empty or whitespace-only`,
+    );
   }
 
   return value;

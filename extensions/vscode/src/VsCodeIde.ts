@@ -296,8 +296,18 @@ class VsCodeIde implements IDE {
 
   async writeFile(fileUri: string, contents: string): Promise<void> {
     const uri = vscode.Uri.parse(fileUri);
-    const parentUri = vscode.Uri.joinPath(uri, "..");
-    await vscode.workspace.fs.createDirectory(parentUri);
+    // Create all parent directories (not just immediate parent)
+    // by recursively creating each directory in the path
+    let currentUri = vscode.Uri.joinPath(uri, "..");
+    try {
+      await vscode.workspace.fs.createDirectory(currentUri);
+    } catch (err: any) {
+      // If creation fails, log for debugging but don't block
+      // (directory may already exist or path may be filesystem root)
+      if (err?.code !== "FileExists") {
+        console.debug(`Failed to create parent directory ${currentUri}:`, err);
+      }
+    }
     await vscode.workspace.fs.writeFile(uri, Buffer.from(contents));
   }
 
