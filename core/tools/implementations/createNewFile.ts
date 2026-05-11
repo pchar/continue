@@ -41,11 +41,12 @@ export const createNewFileImpl: ToolImpl = async (args, extras) => {
   }
   return [
     {
-      name: filepath,
+      name: getUriPathBasename(resolvedFileUri),
       description: getCleanUriPath(resolvedFileUri),
       content: [
-        `File created: ${filepath}`,
-        `For all subsequent operations on this file (read_file, edit_existing_file, single_find_and_replace), use filepath: "${filepath}"`,
+        `File created successfully.`,
+        `Workspace path: "${filepath}"`,
+        `Use exactly this filepath for all subsequent tool calls on this file: read_file, edit_existing_file, single_find_and_replace.`,
       ].join("\n"),
       uri: {
         type: "file",
