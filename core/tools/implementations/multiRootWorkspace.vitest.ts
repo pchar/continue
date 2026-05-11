@@ -14,10 +14,14 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { validateSearchAndReplaceFilepath } from "../../edit/searchAndReplace/validateArgs";
 import {
   inferResolvedUriFromRelativePath,
   resolveRelativePathInDir,
 } from "../../util/ideUtils";
+import { callBuiltInTool } from "../callTool";
+import { BuiltInToolNames, CLIENT_TOOLS_IMPLS } from "../builtIn";
+import { getBaseToolDefinitions } from "../index";
 import { sanitizeFilepath } from "../parseArgs";
 
 // ---------------------------------------------------------------------------
@@ -270,5 +274,75 @@ describe("full 4-step sequence", () => {
     // resolveRelativePathInDir returns undefined (file doesn't exist there)
     const found = await resolveRelativePathInDir(wrongPath, ide);
     expect(found).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: validateSearchAndReplaceFilepath error message is actionable
+//
+// Caught in session 20260511T094546: single_find_and_replace returned
+// "File X does not exist" when the file was on disk but couldn't be verified
+// through the IDE proxy. The AI interpreted it as a missing file and looped.
+// The error must name overwrite_file so the AI knows the next step.
+// ---------------------------------------------------------------------------
+
+describe("validateSearchAndReplaceFilepath error message", () => {
+  it("names overwrite_file when file cannot be resolved", async () => {
+    const ide = makeIde([]); // no files registered → resolveRelativePathInDir returns undefined
+    let caught: Error | undefined;
+    try {
+      await validateSearchAndReplaceFilepath("sandbox/test/Makefile", ide);
+    } catch (e: any) {
+      caught = e;
+    }
+    expect(caught).toBeDefined();
+    expect(caught!.message).toMatch(/overwrite_file/);
+    expect(caught!.message).not.toMatch(/^File .* does not exist$/); // old terse message
+  });
+
+  it("resolves and returns without error when file exists", async () => {
+    const uri = `${ROOT}/sandbox/test/hello.c`;
+    const ide = makeIde([uri]);
+    const result = await validateSearchAndReplaceFilepath(
+      "sandbox/test/hello.c",
+      ide,
+    );
+    expect(result).toBe(uri);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: callBuiltInTool handles every server-side tool name
+//
+// Caught in session 20260511T094546: overwrite_file was added to
+// getBaseToolDefinitions() and BuiltInToolNames but the callBuiltInTool
+// switch was not updated, causing "Tool not found" at runtime.
+//
+// This test fails whenever a tool is added to getBaseToolDefinitions()
+// without a corresponding case in callBuiltInTool.
+// ---------------------------------------------------------------------------
+
+describe("callBuiltInTool — no drift between definitions and switch", () => {
+  it("every server-side base tool has a handler (not 'not found')", async () => {
+    const serverToolNames = getBaseToolDefinitions()
+      .map((t) => t.function.name)
+      .filter((name) => !CLIENT_TOOLS_IMPLS.includes(name as BuiltInToolNames));
+
+    const missing: string[] = [];
+
+    for (const name of serverToolNames) {
+      try {
+        // Call with empty args and a null-stub extras.
+        // We expect any error EXCEPT "Tool X not found".
+        await callBuiltInTool(name, {}, {} as any);
+      } catch (e: any) {
+        if (e?.message?.includes(`"${name}" not found`)) {
+          missing.push(name);
+        }
+        // Any other error (missing args, null ide, etc.) means the handler exists.
+      }
+    }
+
+    expect(missing).toEqual([]); // fails if any tool falls through to the default case
   });
 });

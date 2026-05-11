@@ -20,7 +20,9 @@ export async function validateSearchAndReplaceFilepath(
   if (!resolvedFilepath) {
     throw new ContinueError(
       ContinueErrorReason.FileNotFound,
-      `File ${filepath} does not exist`,
+      `File "${filepath}" could not be found in the workspace.\n` +
+        `If the file exists on disk but was just created, use overwrite_file with the same filepath instead.\n` +
+        `Do NOT use terminal commands to work around this error.`,
     );
   }
   return resolvedFilepath;
