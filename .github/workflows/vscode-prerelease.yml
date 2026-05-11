@@ -41,16 +41,20 @@ jobs:
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version in package.json: $CURRENT_VERSION"
 
-          # Determine new pre-release version
+          # Determine new fork-tracked version
           if [[ -n "${{ inputs.prerelease_version }}" ]]; then
             NEW_VERSION="${{ inputs.prerelease_version }}"
             echo "Using manually specified new version: $NEW_VERSION"
+          elif [[ "$CURRENT_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-fork-([0-9]+)$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            FORK_NUMBER="${BASH_REMATCH[2]}"
+            NEXT_FORK_NUMBER=$((FORK_NUMBER + 1))
+            NEW_VERSION="${BASE_VERSION}-fork-${NEXT_FORK_NUMBER}"
+            echo "Incremented fork version: $NEW_VERSION"
           else
-            # Auto-increment patch version
-            IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
-            NEW_PATCH=$((patch + 1))
-            NEW_VERSION="${major}.${minor}.${NEW_PATCH}"
-            echo "Auto-incremented version: $NEW_VERSION"
+            # First fork bump keeps the current base version and adds -fork-1
+            NEW_VERSION="${CURRENT_VERSION}-fork-1"
+            echo "Initialized fork version: $NEW_VERSION"
           fi
 
           TAG_NAME="v${NEW_VERSION}-vscode"
