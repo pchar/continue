@@ -6,6 +6,7 @@ import * as toolDefinitions from "./definitions";
 export const getBaseToolDefinitions = () => [
   toolDefinitions.readFileTool,
   toolDefinitions.createNewFileTool,
+  toolDefinitions.overwriteFileTool,
   toolDefinitions.runTerminalCommandTool,
   toolDefinitions.globSearchTool,
   toolDefinitions.viewDiffTool,

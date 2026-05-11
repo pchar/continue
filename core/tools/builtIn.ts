@@ -18,6 +18,8 @@ export enum BuiltInToolNames {
   CodebaseTool = "codebase",
   ReadSkill = "read_skill",
 
+  OverwriteFile = "overwrite_file",
+
   // excluded from allTools for now
   ViewRepoMap = "view_repo_map",
   ViewSubdirectory = "view_subdirectory",
