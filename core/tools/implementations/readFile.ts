@@ -2,10 +2,10 @@ import { resolveInputPath } from "../../util/pathResolver";
 import { getUriPathBasename } from "../../util/uri";
 
 import { ToolImpl } from ".";
-import { throwIfFileIsSecurityConcern } from "../../indexing/ignore";
+import { throwIfFileIsSecurityConcernWithRules } from "../../indexing/ignore";
+import { ContinueError, ContinueErrorReason } from "../../util/errors";
 import { getStringArg, sanitizeFilepath } from "../parseArgs";
 import { throwIfFileExceedsHalfOfContext } from "./readFileLimit";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
 
 export const readFileImpl: ToolImpl = async (args, extras) => {
   const filepath = sanitizeFilepath(getStringArg(args, "filepath"));
@@ -20,7 +20,10 @@ export const readFileImpl: ToolImpl = async (args, extras) => {
   }
 
   // Security check on the resolved display path
-  throwIfFileIsSecurityConcern(resolvedPath.displayPath);
+  await throwIfFileIsSecurityConcernWithRules(
+    resolvedPath.displayPath,
+    extras.ide,
+  );
 
   const content = await extras.ide.readFile(resolvedPath.uri);
 

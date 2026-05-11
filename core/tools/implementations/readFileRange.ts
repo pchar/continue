@@ -2,10 +2,10 @@ import { resolveInputPath } from "../../util/pathResolver";
 import { getUriPathBasename } from "../../util/uri";
 
 import { ToolImpl } from ".";
-import { throwIfFileIsSecurityConcern } from "../../indexing/ignore";
+import { throwIfFileIsSecurityConcernWithRules } from "../../indexing/ignore";
+import { ContinueError, ContinueErrorReason } from "../../util/errors";
 import { getNumberArg, getStringArg, sanitizeFilepath } from "../parseArgs";
 import { throwIfFileExceedsHalfOfContext } from "./readFileLimit";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
 
 // Use Int.MAX_VALUE from Java/Kotlin (2^31 - 1) instead of JavaScript's Number.MAX_SAFE_INTEGER
 // to ensure compatibility with IntelliJ's Kotlin Position type which uses Int for character field
@@ -46,7 +46,10 @@ export const readFileRangeImpl: ToolImpl = async (args, extras) => {
   }
 
   // Security check on the resolved display path
-  throwIfFileIsSecurityConcern(resolvedPath.displayPath);
+  await throwIfFileIsSecurityConcernWithRules(
+    resolvedPath.displayPath,
+    extras.ide,
+  );
 
   // Use the IDE's readRangeInFile method with 0-based range (IDE expects 0-based internally)
   const content = await extras.ide.readRangeInFile(resolvedPath.uri, {

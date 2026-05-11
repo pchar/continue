@@ -1,9 +1,9 @@
-import { inferResolvedUriFromRelativePath } from "../../util/ideUtils";
 import { ToolImpl } from ".";
-import { throwIfFileIsSecurityConcern } from "../../indexing/ignore";
+import { throwIfFileIsSecurityConcernWithRules } from "../../indexing/ignore";
+import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { inferResolvedUriFromRelativePath } from "../../util/ideUtils";
 import { getCleanUriPath, getUriPathBasename } from "../../util/uri";
 import { getStringArg, sanitizeFilepath } from "../parseArgs";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
 
 export const overwriteFileImpl: ToolImpl = async (args, extras) => {
   const filepath = sanitizeFilepath(getStringArg(args, "filepath"));
@@ -22,7 +22,10 @@ export const overwriteFileImpl: ToolImpl = async (args, extras) => {
     );
   }
 
-  throwIfFileIsSecurityConcern(getCleanUriPath(resolvedFileUri));
+  await throwIfFileIsSecurityConcernWithRules(
+    getCleanUriPath(resolvedFileUri),
+    extras.ide,
+  );
 
   const existed = await extras.ide.fileExists(resolvedFileUri);
   await extras.ide.writeFile(resolvedFileUri, contents);

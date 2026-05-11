@@ -10,6 +10,7 @@ const mockIde = {
       "file:///Users/pch/MyProjects/DGJ/continue",
     ]),
   getCurrentFile: jest.fn<() => Promise<any>>().mockResolvedValue(null),
+  readFile: jest.fn<(path: string) => Promise<string>>(),
   fileExists: jest.fn<(path: string) => Promise<boolean>>(),
   writeFile: jest
     .fn<(path: string, content: string) => Promise<void>>()
@@ -34,6 +35,7 @@ beforeEach(() => {
     "file:///Users/pch/MyProjects/DGJ/continue",
   ]);
   mockIde.getCurrentFile.mockResolvedValue(null);
+  mockIde.readFile.mockRejectedValue(new Error("ENOENT"));
   mockIde.fileExists.mockResolvedValue(false);
 });
 
