@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { ModelDescription, SerializedContinueConfig } from "core";
 import { IDE } from "core/index.js";
 import { FromIdeProtocol, ToIdeProtocol } from "core/protocol/index.js";

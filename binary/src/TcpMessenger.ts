@@ -1,7 +1,7 @@
 import { IProtocol } from "core/protocol";
 import { IMessenger, Message } from "core/protocol/messenger";
 import net from "net";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 
 export class TcpMessenger<
   ToProtocol extends IProtocol,
@@ -153,15 +153,15 @@ export class TcpMessenger<
     data: FromProtocol[T][0],
     messageId?: string,
   ): string {
-    messageId = messageId ?? uuidv4();
+    const resolvedMessageId = messageId ?? randomUUID();
     const msg: Message = {
       messageType: messageType as string,
       data,
-      messageId,
+      messageId: resolvedMessageId,
     };
 
     this.socket?.write(JSON.stringify(msg) + "\r\n");
-    return messageId;
+    return resolvedMessageId;
   }
 
   on<T extends keyof ToProtocol>(
@@ -179,7 +179,7 @@ export class TcpMessenger<
     data: ToProtocol[T][0],
   ): ToProtocol[T][1] {
     return this.typeListeners.get(messageType)?.[0]?.({
-      messageId: uuidv4(),
+      messageId: randomUUID(),
       messageType: messageType as string,
       data,
     });
@@ -189,7 +189,7 @@ export class TcpMessenger<
     messageType: T,
     data: FromProtocol[T][0],
   ): Promise<FromProtocol[T][1]> {
-    const messageId = uuidv4();
+    const messageId = randomUUID();
     return new Promise((resolve) => {
       const handler = (msg: Message) => {
         resolve(msg.data);

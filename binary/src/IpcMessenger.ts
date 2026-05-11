@@ -1,9 +1,9 @@
 import { IProtocol } from "core/protocol/index.js";
 import { IMessenger, type Message } from "core/protocol/messenger";
 import { ChildProcessWithoutNullStreams } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import net from "node:net";
-import { v4 as uuidv4 } from "uuid";
 
 class IPCMessengerBase<
   ToProtocol extends IProtocol,
@@ -122,7 +122,7 @@ class IPCMessengerBase<
     messageType: T,
     data: FromProtocol[T][0],
   ): Promise<FromProtocol[T][1]> {
-    const messageId = uuidv4();
+    const messageId = randomUUID();
     return new Promise((resolve) => {
       const handler = (msg: Message) => {
         resolve(msg.data);
@@ -143,14 +143,14 @@ class IPCMessengerBase<
     data: FromProtocol[T][0],
     messageId?: string,
   ): string {
-    messageId = messageId ?? uuidv4();
+    const resolvedMessageId = messageId ?? randomUUID();
     const msg: Message = {
       messageType: messageType as string,
       data,
-      messageId,
+      messageId: resolvedMessageId,
     };
     this._sendMsg(msg);
-    return messageId;
+    return resolvedMessageId;
   }
 
   invoke<T extends keyof ToProtocol>(
@@ -158,7 +158,7 @@ class IPCMessengerBase<
     data: ToProtocol[T][0],
   ): ToProtocol[T][1] {
     return this.typeListeners.get(messageType)?.[0]?.({
-      messageId: uuidv4(),
+      messageId: randomUUID(),
       messageType: messageType as string,
       data,
     });

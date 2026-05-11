@@ -23,7 +23,7 @@ export async function getEnvPathFromUserShell(
       encoding: "utf8",
     });
 
-    return stdout.trim();
+    return String(stdout).trim();
   } catch (error) {
     return process.env.PATH; // Fallback to current PATH
   }

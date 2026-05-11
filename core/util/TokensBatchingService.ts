@@ -12,7 +12,7 @@ interface TokenBatch {
 export class TokensBatchingService {
   private static instance: TokensBatchingService;
   private batches = new Map<string, TokenBatch>();
-  private flushTimer: NodeJS.Timeout | null = null;
+  private flushTimer: ReturnType<typeof setInterval> | null = null;
 
   private readonly BATCH_SIZE_LIMIT = 25;
   private readonly FLUSH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
@@ -87,7 +87,12 @@ export class TokensBatchingService {
     }, this.FLUSH_INTERVAL_MS);
     // Allow the process to exit if this timer is the only thing keeping it alive
     // This prevents test hangs and allows graceful shutdown
-    this.flushTimer.unref();
+    if (
+      this.flushTimer &&
+      typeof (this.flushTimer as any).unref === "function"
+    ) {
+      (this.flushTimer as any).unref();
+    }
   }
 
   private flushAllBatches(): void {

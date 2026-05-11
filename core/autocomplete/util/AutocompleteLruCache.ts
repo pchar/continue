@@ -28,7 +28,7 @@ export class AutocompleteLruCache {
   private mutex = new Mutex();
   private cache: Map<string, CacheEntry> = new Map();
   private dirty: Set<string> = new Set();
-  private flushTimer?: NodeJS.Timeout;
+  private flushTimer?: ReturnType<typeof setInterval>;
 
   constructor(private db: DatabaseConnection) {}
 
